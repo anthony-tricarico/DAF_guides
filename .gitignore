@@ -2,3 +2,7 @@
 .Rhistory
 .RData
 .Ruserdata
+*.jpg
+*.jpeg
+.DS_Store
+*Rproj

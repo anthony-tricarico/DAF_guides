@@ -72,10 +72,22 @@ df_ts <- df %>%
   select(rcon)
 ```
 
+```{r}
+df1 <- mutate(df, date = yearmonth(dates))
+```
+
+```{r}
+df_ts <- as_tsibble(df1, index = date)
+```
+
+```{r}
+(df_ts <- select(df_ts, rcon))
+```
+
 ## Point b)
 
 ```{r}
-autoplot(ACF(df_ts, y = rcon))
+autoplot(ACF(df_ts))
 ```
 
 There appears to be a strong autocorrelation at lags 1, 14, and 19.
@@ -90,7 +102,15 @@ autoplot(df_ts)
 features(df_ts, rcon, ljung_box, lag = 10)
 ```
 
-Here we assumed that there is not strong seasonality in the data and so we use a `lag` of 10 as suggested by the literature on the topic and by the book in [section 5.4](https://otexts.com/fpp3/diagnostics.html)
+Here we assumed that there is not strong seasonality in the data and so we use a `lag` ($l$) of 10 as suggested by the literature on the topic and by the book in [section 5.4](https://otexts.com/fpp3/diagnostics.html).
+
+However, we can visually check the assumption by looking at the seasonal plot.
+
+```{r}
+gg_season(df_ts)
+```
+
+By looking at it since we are unable to spot a consistent pattern for the same month compared across the different years, we conclude that the time series does not exhibit seasonality justifying the choice of $l = 10$.
 
 ## Point d)
 

@@ -72,7 +72,7 @@ autoplot(unemp_ts, box_cox(unemp, lambda)) +
 # follow a normal distribution as closely as possible
 hist(box_cox(unemp_ts$unemp, lambda), main = "Transformed unemp")
 
-#(c) one step ahead forecasts
+# (c) one step ahead forecasts
 #(i) 
 
 unemp_transformed <- mutate(unemp_ts, unemp_bc=box_cox(unemp, lambda))
@@ -80,8 +80,9 @@ model1 <- model(unemp_transformed,
                 TSLM_ts  = TSLM(unemp_bc ~ trend() + season()),
                 SNaive   = SNAIVE(unemp_bc ~ lag("year")))
 
-
-#(d)
+fore <- forecast(model1, h=1)
+fore
+# (d)
 report(select(model1, "TSLM_ts"))
 #comment: among the components of the multiple linear regression model, some are not statistically significant
 # trend is significant and hints at a positive trend (look at estimate if estimate is positive then trend is positive)
@@ -104,10 +105,10 @@ report(select(model1, "TSLM_ts"))
 
 # h controls how many periods in the future you would like to forecast
 # since we are producing one-step-ahead forecast the horizon (h) is set to 1
-fore <- forecast(model1, h=1)
+
 autoplot(fore, unemp_transformed, level = NULL)
 
-#(e) cross validation 
+# (e) cross validation 
 
 # create the new tsibble structure for CV
 # this basically creates a series of training sets that will be used to
@@ -123,12 +124,13 @@ fit_cv_u <- model(unemp_cv,
 
 # use the models fit on the CV dataset to produce the one-step-ahead forecasts
 fc_cv_u <- forecast(fit_cv_u, h = 1)
+acc_u <- accuracy(fc_cv_u, unemp_transformed)
+select(acc_u, .model, RMSE, MAE, MAPE) #model with smaller value is the best
 
 #(f)
 # compute the accuracy of the models on the entire dataset (the one you used
 # as input for the stretch_tsibble function originally)
-acc_u <- accuracy(fc_cv_u, unemp_transformed)
-select(acc_u, .model, RMSE, MAE, MAPE) #model with smaller value is the best
+
 #here snaive is better because less complicated, even though results are almost similar
 
 ############ AGRICULTURE ##################
@@ -168,7 +170,8 @@ autoplot(acf_ag)
 # to use when computing the test statistic.
 
 # The book suggests following this decision-making process:
-# 1. if the time series is seasonal, then use a lag parameter (l) of 2*m where m is the period of seasonality (if monthly data it is 12, quarterly data it is 4, daily data it is 7, hourly data it is 24)
+# 1. if the time series is seasonal, then use a lag parameter (l) of 2*m where m is the period of seasonality
+# (if monthly data it is 12, quarterly data it is 4, daily data it is 7, hourly data it is 24)
 # 2. if the time series is not seasonal, then use l = 10
 
 # After picking the appropriate l then check if it is larger than T/5 where T is the number
@@ -182,7 +185,43 @@ autoplot(acf_ag)
 10 < nrow(agriculture_ts) / 5
 # Since the check above stated that 10 is smaller than T/5 we can use that
 # Now we therefore apply the Ljung-Box test using l = 10
-features(agriculture_ts, agriculture, box_pierce, lag = 10)
+features(agriculture_ts, agriculture, ljung_box, lag = 10)
 
 # As expected given the very small p-value (definitely smaller than any commonly used significance level) we can determine that there is a significant
 # degree of autocorrelation.
+
+# Reference code is in chapter 5
+
+####### 3 ###########
+
+# Forecasting with decomposition is like predicting a company's total sales by looking at its steady underlying
+# growth separately from its predictable holiday spikes.
+
+# To do this, you first split the time series into its core building blocks: the repeating seasonal pattern
+# the overall trend, and the random background noise. Once separated, you temporarily remove the seasonal 
+# pattern from the data. This leaves you with the "seasonally adjusted" data, which is much smoother and easier to predict
+# using basic forecasting methods. After you predict the future path of this smooth, underlying trend, you simply grab
+# the historical seasonal pattern—like a typical December spike or a summer slump—and add it back on top of your new
+# forecast to get the final result.
+
+# This approach is highly appropriate for time series that exhibit strong, consistent, and well-defined seasonal patterns, 
+# such as monthly retail sales, daily energy consumption, or quarterly passenger numbers. It is especially useful when the
+# seasonal fluctuations are so large that they obscure the underlying trend, making it difficult for standard models to see
+# the bigger picture without first stripping the seasonality away. 
+# Naturally, this method is not appropriate for strictly annual data or any dataset that
+# lacks a repeating cycle, because there is no seasonal component to extract in the first place.
+
+# Reference code is in chapter 5.
+
+##### 4 ######
+
+# The naive method is the simplest forecasting approach possible. It assumes that whatever happened yesterday will happen exactly the 
+# same way tomorrow. It completely ignores all historical data except for the single most recent observation.
+
+# SES generates a forecast by taking a weighted average of all past observations. 
+# However, instead of treating all historical data equally, it applies exponentially decreasing 
+# weights as the observations get older. Recent data is treated as highly relevant, 
+# while data from years ago is given very little weight.
+# The parameter alpha [0,1] regulates how strong the smoothing should be with a high alpha meaning the model
+# reacts quickly to recent changes and a small alpha meaning that the model smooths out recent volatility
+# and bases its prediction on past patterns.

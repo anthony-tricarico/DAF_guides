@@ -140,7 +140,7 @@ cv %>%
     "additive" = ETS(value ~ error("A") + trend("A") + season("A")),
     "multiplicative" = ETS(value ~ error("M") + trend("A") + season("M"))
   ) %>%
-  predict(h = 1) %>%
+  forecast(h = 1) %>%
   accuracy(df_ts) %>%
   select(.model, RMSE, MAE, MAPE)
 ```

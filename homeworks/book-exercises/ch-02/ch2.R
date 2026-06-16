@@ -1,3 +1,4 @@
+
 library(fpp3)
 # EX 2: Use filter() to find what days corresponded to the peak closing price for each of the four stocks in gafa_stock.
 
@@ -44,7 +45,7 @@ gas_ts %>%
 # (a) Download tourism.xlsx from the book website and read it into R using readxl::read_excel()
 # we need to import this package if we want to use the read_excel function
 library(readxl)
-tourism_xlsx <- read_excel("homeworks/book-exercises/tourism.xlsx")
+tourism_xlsx <- read_excel("book-exercises/ch-02/tourism.xlsx")
 
 # inspecting the structure of the dataset to determine the types of the different
 # columns

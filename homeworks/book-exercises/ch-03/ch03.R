@@ -123,6 +123,7 @@ autoplot(canadian_gas)
 # (from Exercise 7 in Section 2.10)?
 
 set.seed(34)
+# set.seed(14062026)
 myseries <- aus_retail |>
   filter(`Series ID` == sample(aus_retail$`Series ID`,1))
 
@@ -210,7 +211,7 @@ gg_season(scs_pedestrian, Count, period = "1d")
 # patterns emerge
 gg_season(scs_pedestrian, Count, period = "1w")
 # at the weekly level wee see the patterns at the daily level are repeated
-# for all weekdays, whereas duringh the weekend there is not
+# for all weekdays, whereas during the weekend there is not
 # a clear pattern other that on Saturday night people use the station more
 # and also on Sunday mornings.
 
@@ -316,6 +317,8 @@ dcmp %>%
   select(season_adjust) %>% 
   autoplot(season_adjust)
 
+autoplot(select(components(dcmp), season_adjust))
+
 # (e)
 
 modified <- gas
@@ -391,6 +394,8 @@ dcmp %>%
   select(season_year) %>% 
   gg_season()
 
+gg_season(select(components(dcmp), season_year))
+
 # over time the seasonal shape moved from being a smooth parabola-like curve to 
 # a more ragged line with sharp edges. This indicates that the seasonal patterns
 # underwent severe amplification throughout the years.
@@ -405,7 +410,7 @@ dcmp %>%
 
 lambda <- features(canadian_gas, Volume, "guerrero") %>% pull(lambda_guerrero)
 dcmp <- canadian_gas %>%
-  model(STL(box_cox(Volume, lambda) ~ trend(window = 21) + season(window = "periodic")))
+  model(STL(box_cox(Volume, lambda) ~ trend(window = 11) + season(window = "periodic")))
 # here the window of the season is periodic because it assumes that the box cox transformation stabilized the variance
 # of the seasonal patterns
 

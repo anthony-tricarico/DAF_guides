@@ -498,3 +498,228 @@ fitted_mods %>%
   gg_tsresiduals()
 
 # residuals are white noise for the drift method fitted to Canadian data
+
+####### EX 10
+# (a)
+
+autoplot(ta_aus)
+# 5 out of 8 states show a strong trend
+
+train <- ta_aus %>% 
+  filter(year(Month) < 2015)
+
+test <- ta_aus %>% 
+  filter(year(Month) >= 2015)
+
+# (b)
+
+# Given the presence of trend, drift is justified.
+# For series without a strong trend and not much seasonality
+# also mean method is good.
+# For series with small trend and seasonality, seasonal naive is a good option
+# NAIVE is fitted just because it is pretty much inexpensive in terms of computation
+# I do not expect it to be of much help with these time series
+
+fitted_mods <- train %>% 
+  model(
+    naive = NAIVE(Turnover),
+    snaive = SNAIVE(Turnover ~ lag("year")),
+    mean = MEAN(Turnover),
+    drift = RW(Turnover ~ drift())
+  )
+  
+fore <- forecast(fitted_mods, h = "4 years")
+
+# (c)
+states <- distinct(ta_aus, State) %>% pull(State)
+
+for (state in states) {
+  acc <- accuracy(fore, test) %>% 
+    arrange(RMSE) %>% 
+    filter(State == state)
+  
+  print(head(acc,1))
+}
+
+# best model for each time series in terms of RMSE:
+# tasmania, northern territory, australian capital territory, south australia, new south wales, western australia -> drift
+# queensland, victoria -> seasonal naive
+
+# (d)
+
+best_snaive <- c("Queensland", "Victoria")
+
+# loop to plot residual diagnostics for each best model for each time series
+for (state in states) {
+  if (state %in% best_snaive) {
+    col_to_select <- "snaive"
+  } else {
+    col_to_select <- "drift"
+  }
+  p <- fitted_mods %>% 
+    filter(State == state) %>% 
+    select(all_of(col_to_select)) %>% 
+    gg_tsresiduals() +
+    labs(title = paste(col_to_select, "model", "for", state))
+  print(p) # must use print inside of for loops otherwise R will not show the plots
+}
+
+# australian capital territory: no white noise
+# nsw: no white noise
+# northern: no white noise
+# queensland: no white noise
+# south: no white noise
+# tasmania: no white noise
+# victoria: no white noise
+# western australia: no white noise
+
+# all models are not good enough to the fact that they consider either only
+# the trend or the seasonality. We will see how we can create better models
+# that use both trend and seasonality in their forecasts.
+
+####### EX 11
+
+# (a)
+autoplot(bricks)
+
+gg_season(bricks) # strong seasonality
+
+stl_dcmp <- bricks %>% 
+  model(
+    stl = STL(Bricks ~ trend(window = 21) + season(window = 11))
+  )
+
+# (b)
+
+sa <- stl_dcmp %>% 
+  select(stl) %>% 
+  components() %>% 
+  select(season_adjust)
+
+autoplot(sa)
+
+# (c)
+
+fore_naive_sa <- sa %>% 
+  model(naive = NAIVE(season_adjust)) %>% 
+  forecast()
+
+autoplot(fore_naive_sa, sa, level = NULL)
+
+# (d)
+
+dcmp_fit <- bricks %>% 
+  model(
+    dcmp_model = decomposition_model(
+      STL(Bricks ~ trend(window = 21) + season(window = 11)),
+      NAIVE(season_adjust)
+    )
+  )
+
+# (e)
+
+dcmp_fit %>% 
+  select(dcmp_model) %>% 
+  gg_tsresiduals()
+
+# no, the residuals do not appear to be uncorrelated from the correlogram
+
+# (f)
+
+dcmp_fit <- bricks %>% 
+  model(
+    dcmp_model = decomposition_model(
+      STL(Bricks ~ trend(window = 21) + season(window = 11), robust = T),
+      NAIVE(season_adjust)
+    )
+  )
+
+dcmp_fit %>% 
+  select(dcmp_model) %>% 
+  gg_tsresiduals()
+
+# the patterns are alleviated compared to the previous plot but there are still
+# a few spikes crossing the significance boundary, hinting at the fact that autocorrelation
+# is still present in the residuals.
+
+# (g)
+test <- bricks %>% 
+  filter_index("2004 Q1" ~ .)
+
+train <- bricks %>% 
+  filter_index(. ~ "2003 Q4")
+
+dcmp_fit <- train %>% 
+  model(
+    dcmp_model = decomposition_model(
+      STL(Bricks ~ trend(window = 21) + season(window = 11), robust = T),
+      NAIVE(season_adjust)
+    ),
+    snaive = SNAIVE(Bricks ~ lag("year"))
+    
+  )
+
+fore <- forecast(dcmp_fit, h = 8)
+
+accuracy(fore, test)
+
+# the decomposition model is performing better as evidenced by an RMSE of 18.7
+# which is lower than that for the seasonal naive model (19.9) on the test set.
+# Therefore, we conclude that the best model is the decomposition model.
+
+###### EX 12
+
+print(distinct(tourism, Region), n = 100)
+
+# (a)
+
+gc_tourism <-  tourism %>% 
+  filter(Region == "Gold Coast") %>% 
+  group_by(Purpose) %>% 
+  summarize(total_trips = sum(Trips))
+
+# (b)
+
+gc_train_1 <- gc_tourism %>% 
+  group_by_key() %>% 
+  slice(1:(n()-4)) %>% 
+  ungroup()
+
+gc_train_2 <- gc_tourism %>% 
+  group_by_key() %>% 
+  slice(1:(n()-8)) %>% 
+  ungroup()
+
+gc_train_3 <- gc_tourism %>% 
+  group_by_key() %>% 
+  slice(1:(n()-12)) %>% 
+  ungroup()
+
+# (c)
+
+gc_fc_1 <- gc_train_1 %>% 
+  model(SNAIVE(total_trips, lag = "year")) %>% 
+  forecast(h = "1 year")
+
+gc_fc_2 <- gc_train_2 %>% 
+  model(SNAIVE(total_trips, lag = "year")) %>% 
+  forecast(h = "1 year")
+
+gc_fc_3 <- gc_train_3 %>% 
+  model(SNAIVE(total_trips, lag = "year")) %>% 
+  forecast(h = "1 year")
+
+# (d)
+
+# since you do not have to cover MAPE we will interpret those using RMSE
+
+accuracy(gc_fc_1, gc_tourism)
+accuracy(gc_fc_2, gc_tourism)
+accuracy(gc_fc_3, gc_tourism)
+
+# we get the best predictions using this method when analyzing the "Other" purpose
+# time series. This means that this time series exhibit almost constant seasonal pattern
+# that does not change much year by year, hence the seasonal naive model is able
+# to perform well.
+
+gg_season(gc_tourism)
